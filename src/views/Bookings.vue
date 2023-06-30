@@ -2,15 +2,25 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import TitleBar from "../components/TitleBar.vue";
 import PocketBase from "pocketbase";
+import { useRouter } from "vue-router";
 
 let pb = new PocketBase("http://127.0.0.1:8090");
 
 let bookings = ref([]);
 
-let searchedBookings = ref([]);
+let router = useRouter();
 
-// let bookings = pb.collection('bookings').getFullList();
+let searchedBookings = ref([]);
+let currentUser = pb.authStore.model;
 onMounted(async () => {
+  console.log(currentUser)
+
+  if (!currentUser || currentUser.collectionName == "students" ) {
+    router.push({
+      name: "signin",
+    });
+  }
+
   await pb
     .collection("bookings")
     .getFullList({
@@ -26,32 +36,35 @@ onMounted(async () => {
       console.log(err);
     });
 
-  pb.collection("bookings").subscribe("*", async function ({action, record}) {
-    if(action == "update"){
+  pb.collection("bookings").subscribe("*", async function ({ action, record }) {
+    if (action == "update") {
       bookings.value.forEach(async (book, id) => {
-        if(book.id == record.id){
-          await pb.collection("bookings").getOne(book.id, {
-            expand: "student,computer"
-          }).then((result) => {
-            bookings.value[id] = result;
-          })
+        if (book.id == record.id) {
+          await pb
+            .collection("bookings")
+            .getOne(book.id, {
+              expand: "student,computer",
+            })
+            .then((result) => {
+              bookings.value[id] = result;
+            });
         }
-      })
-    }else 
-    if(action == "delete"){
+      });
+    } else if (action == "delete") {
       bookings.value.forEach((book, id) => {
-        if(book.id == record.id){
+        if (book.id == record.id) {
           bookings.value.splice(id, 1);
         }
-      })
-    }
-    else if(action == "create"){
-
-      await pb.collection("bookings").getOne(record.id,{
-        expand: "student,computer"
-      }).then((result) => {
-        bookings.value.push(result);
       });
+    } else if (action == "create") {
+      await pb
+        .collection("bookings")
+        .getOne(record.id, {
+          expand: "student,computer",
+        })
+        .then((result) => {
+          bookings.value.push(result);
+        });
     }
   });
 });
@@ -82,36 +95,41 @@ const searchFromSideBar = (code) => {
 let code = "BC-";
 
 const Accept = async (BookingId, index) => {
-  await pb.collection("bookings").update(BookingId, {
-    "status": "Accepted",
-  }).then(result => {
-    console.log(result);
-    if (result) {
-      bookings.value.forEach((book, id) => {
-        if(book.id == BookingId){
-          bookings.value[id].status = "Accepted"
-        }
-      })
-    }
-  })
+  await pb
+    .collection("bookings")
+    .update(BookingId, {
+      status: "Accepted",
+    })
+    .then((result) => {
+      console.log(result);
+      if (result) {
+        bookings.value.forEach((book, id) => {
+          if (book.id == BookingId) {
+            bookings.value[id].status = "Accepted";
+          }
+        });
+      }
+    });
   console.log("Accepted");
-}
+};
 const Complete = async (BookingId, index) => {
-  await pb.collection("bookings").update(BookingId, {
-    "status": "Completed",
-  }).then(result => {
-    console.log(result);
-    if (result) {
-      bookings.value.forEach((book, id) => {
-        if(book.id == BookingId){
-          bookings.value[id].status = "Completed"
-        }
-      })
-    }
-  })
+  await pb
+    .collection("bookings")
+    .update(BookingId, {
+      status: "Completed",
+    })
+    .then((result) => {
+      console.log(result);
+      if (result) {
+        bookings.value.forEach((book, id) => {
+          if (book.id == BookingId) {
+            bookings.value[id].status = "Completed";
+          }
+        });
+      }
+    });
   console.log("Accepted");
-}
-
+};
 </script>
 
 <template>
@@ -160,7 +178,11 @@ const Complete = async (BookingId, index) => {
         />
         <button @click="searchFromSideBar(code)">Search</button>
       </div>
-      <div class="pc-c" v-for="searched , index  in searchedBookings" :key="searched.id">
+      <div
+        class="pc-c"
+        v-for="(searched, index) in searchedBookings"
+        :key="searched.id"
+      >
         <div class="pc">
           <div>
             {{ searched.booking_code }}
@@ -175,30 +197,40 @@ const Complete = async (BookingId, index) => {
           <div>
             {{ new Date(searched.end_time).toLocaleTimeString() }}
           </div>
-          <div style="color: green; font-weight: bolder;">
+          <div style="color: green; font-weight: bolder">
             {{ searched.status }}
           </div>
         </div>
         <div>
           {{ searched.expand?.student?.name }}
         </div>
-        <button v-if="searched.status == 'Pending'" @click="Accept(searched.id, index)">Accept</button>
-        <button v-if="searched.status == 'Accepted'" @click="Complete(searched.id, index)">Complete</button>
+        <button
+          v-if="searched.status == 'Pending'"
+          @click="Accept(searched.id, index)"
+        >
+          Accept
+        </button>
+        <button
+          v-if="searched.status == 'Accepted'"
+          @click="Complete(searched.id, index)"
+        >
+          Complete
+        </button>
       </div>
     </aside>
   </article>
 </template>
 
 <style>
-.form{
+.form {
   display: flex;
 }
 
-.form button{
+.form button {
   border-radius: 0;
 }
 
-.form input{
+.form input {
   border-radius: 0;
   border: 0;
   background: rgb(236, 241, 212);
