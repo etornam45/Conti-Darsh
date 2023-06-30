@@ -26,8 +26,33 @@ onMounted(async () => {
       console.log(err);
     });
 
-  pb.collection("bookings").subscribe("*", function (e) {
-    console.log(e.record);
+  pb.collection("bookings").subscribe("*", async function ({action, record}) {
+    if(action == "update"){
+      bookings.value.forEach(async (book, id) => {
+        if(book.id == record.id){
+          await pb.collection("bookings").getOne(book.id, {
+            expand: "student,computer"
+          }).then((result) => {
+            bookings.value[id] = result;
+          })
+        }
+      })
+    }else 
+    if(action == "delete"){
+      bookings.value.forEach((book, id) => {
+        if(book.id == record.id){
+          bookings.value.splice(id, 1);
+        }
+      })
+    }
+    else if(action == "create"){
+
+      await pb.collection("bookings").getOne(record.id,{
+        expand: "student,computer"
+      }).then((result) => {
+        bookings.value.push(result);
+      });
+    }
   });
 });
 
@@ -45,7 +70,7 @@ const searchFromTable = (id) => {
 };
 
 const searchFromSideBar = (code) => {
-    console.log(code);
+  console.log(code);
   bookings.value.forEach((Booking) => {
     if (Booking.booking_code == code) {
       searchedBookings.value = [];
@@ -54,7 +79,39 @@ const searchFromSideBar = (code) => {
   });
 };
 
-let code = "";
+let code = "BC-";
+
+const Accept = async (BookingId, index) => {
+  await pb.collection("bookings").update(BookingId, {
+    "status": "Accepted",
+  }).then(result => {
+    console.log(result);
+    if (result) {
+      bookings.value.forEach((book, id) => {
+        if(book.id == BookingId){
+          bookings.value[id].status = "Accepted"
+        }
+      })
+    }
+  })
+  console.log("Accepted");
+}
+const Complete = async (BookingId, index) => {
+  await pb.collection("bookings").update(BookingId, {
+    "status": "Completed",
+  }).then(result => {
+    console.log(result);
+    if (result) {
+      bookings.value.forEach((book, id) => {
+        if(book.id == BookingId){
+          bookings.value[id].status = "Completed"
+        }
+      })
+    }
+  })
+  console.log("Accepted");
+}
+
 </script>
 
 <template>
@@ -64,8 +121,8 @@ let code = "";
     <section>
       <table>
         <tr>
-          <th>Computer</th>
           <th>Booking Code</th>
+          <th>Computer</th>
           <th>Start Time</th>
           <th>End Time</th>
           <th>Student</th>
@@ -76,7 +133,9 @@ let code = "";
           :key="Booking.id"
           @click="searchFromTable(Booking.id)"
         >
-          <td>{{ Booking.booking_code }}</td>
+          <td>
+            <b>{{ Booking.booking_code }}</b>
+          </td>
           <td>{{ Booking.expand?.computer?.display_name }}</td>
           <td>{{ new Date(Booking.start_time).toLocaleTimeString() }}</td>
           <td>{{ new Date(Booking.end_time).toLocaleTimeString() }}</td>
@@ -92,25 +151,78 @@ let code = "";
     </section>
 
     <aside>
-      <input type="text" placeholder="Search Bookings By Code" class="search" v-model="code"  />
-      <button @click="searchFromSideBar(code)">
-        Search  
-      </button>
-      <div v-for="searched in searchedBookings" :key="searched.id">
-        {{ searched.booking_code }}
-        <br>
-        {{ new Date(searched.start_time).toLocaleTimeString() }}
-        <br>
-        {{ new Date(searched.end_time).toLocaleTimeString() }}
-        {{ searched.expand?.student?.name }}
-        <button v-if="searched.status == 'Pending'">Accept</button>
-        <button v-if="searched.status == 'Accepted'">Complete</button>
+      <div class="form">
+        <input
+          type="text"
+          placeholder="Search Bookings By Code"
+          class="search"
+          v-model="code"
+        />
+        <button @click="searchFromSideBar(code)">Search</button>
+      </div>
+      <div class="pc-c" v-for="searched , index  in searchedBookings" :key="searched.id">
+        <div class="pc">
+          <div>
+            {{ searched.booking_code }}
+          </div>
+          <div>
+            {{ searched.expand?.computer?.display_name }}
+          </div>
+          <div>
+            {{ new Date(searched.start_time).toLocaleTimeString() }}
+          </div>
+
+          <div>
+            {{ new Date(searched.end_time).toLocaleTimeString() }}
+          </div>
+          <div style="color: green; font-weight: bolder;">
+            {{ searched.status }}
+          </div>
+        </div>
+        <div>
+          {{ searched.expand?.student?.name }}
+        </div>
+        <button v-if="searched.status == 'Pending'" @click="Accept(searched.id, index)">Accept</button>
+        <button v-if="searched.status == 'Accepted'" @click="Complete(searched.id, index)">Complete</button>
       </div>
     </aside>
   </article>
 </template>
 
 <style>
+.form{
+  display: flex;
+}
+
+.form button{
+  border-radius: 0;
+}
+
+.form input{
+  border-radius: 0;
+  border: 0;
+  background: rgb(236, 241, 212);
+  padding: 10px;
+}
+
+.pc-c {
+  display: grid;
+  gap: 20px;
+  background: #dddddd;
+  padding: 10px;
+  margin-top: 20px;
+}
+
+.pc {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+button {
+  background: rgb(226, 125, 43);
+  border-radius: 0;
+}
 .Pending {
   color: white;
   background: rgb(204, 20, 23);

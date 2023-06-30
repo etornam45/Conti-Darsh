@@ -2,11 +2,11 @@
 
 <template>
   <main>
-    <nav>
+    <!-- <nav>
       <router-link to="/">Home</router-link>
       <router-link to="/bookings">Bookings</router-link>
       <router-link to="/students">Students</router-link>
-    </nav>
+    </nav> -->
     <div>
       <router-view></router-view>
     </div>
@@ -21,8 +21,9 @@ div{
 }
 main {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  /* grid-template-columns: 300px 1fr; */
   /* gap: 20px; */
+  width: 100%;
 }
 nav {
   display: flex;
